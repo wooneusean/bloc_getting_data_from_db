@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:convert';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/cupertino.dart';
 import 'user.dart';
@@ -16,6 +15,10 @@ enum snackBarMessages {
   SERVERDOWN,
   USERNOTVERIFIED,
   USEREXISTS,
+
+  CODENOMOREUSES,
+  CODEDOESNTEXIST,
+
   USERNOTEXISTS,
   MAILERDOWN,
   REGISTERSUCCESS,
@@ -50,6 +53,12 @@ Future _showSnackBar(BuildContext context, snackBarMessages msg) async {
       break;
     case snackBarMessages.USERNOTEXISTS:
       message = 'Account with that email doesn\'t exist!';
+      break;
+    case snackBarMessages.CODENOMOREUSES:
+      message = 'Code has no more uses!';
+      break;
+    case snackBarMessages.CODEDOESNTEXIST:
+      message = 'Code doesn\'t exist!';
       break;
     case snackBarMessages.MAILERDOWN:
       message = 'Our mailer is down!';
@@ -179,12 +188,12 @@ class RedeemPage extends StatefulWidget {
 }
 
 class _RedeemPageState extends State<RedeemPage> {
-  // Fix up this
   final codeCtrl = TextEditingController();
   bool _isButtonPressed = false;
 
   Future _sendRedeemRequest(
       String code, String myEmail, BuildContext context) async {
+    //final url = 'http://10.0.2.2/ctp1982019/redeem.php';
     final url = 'http://cef1582019.gearhostpreview.com/redeem.php';
     try {
       _isButtonPressed = true;
@@ -193,11 +202,10 @@ class _RedeemPageState extends State<RedeemPage> {
         'myEmail': myEmail,
       }).timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
-        debugPrint(myEmail);
         var resp = jsonDecode(response.body);
-        Navigator.of(context).pop();
         if (resp.isNotEmpty) {
           if (resp['res'] == '4') {
+            Navigator.of(context).pop();
             await showDialog(
               context: context,
               builder: (BuildContext context) {
@@ -232,10 +240,10 @@ class _RedeemPageState extends State<RedeemPage> {
               },
             );
           } else if (resp['res'] == '3') {
-            _showSnackBar(context, snackBarMessages.USERNOTEXISTS);
+            _showSnackBar(context, snackBarMessages.CODENOMOREUSES);
             _isButtonPressed = false;
           } else if (resp['res'] == '2') {
-            _showSnackBar(context, snackBarMessages.INSUFFICIENTFUNDS);
+            _showSnackBar(context, snackBarMessages.CODEDOESNTEXIST);
             _isButtonPressed = false;
           } else if (resp['res'] == '1') {
             _showSnackBar(context, snackBarMessages.FAILURE);
@@ -264,7 +272,7 @@ class _RedeemPageState extends State<RedeemPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Transfer'),
+        title: Text('Redeem Code'),
       ),
       body: Builder(
         builder: (context) => SafeArea(
@@ -274,8 +282,7 @@ class _RedeemPageState extends State<RedeemPage> {
               SizedBox(height: 120.0),
               TextField(
                 controller: codeCtrl,
-                decoration:
-                    InputDecoration(labelText: 'Code', filled: true),
+                decoration: InputDecoration(labelText: 'Code', filled: true),
               ),
               SizedBox(height: 12.0),
               ButtonBar(
@@ -330,8 +337,8 @@ class _TransferPageState extends State<TransferPage> {
         'recipientEmail': recipientEmail,
         'amount': amt.toString(),
       }).timeout(const Duration(seconds: 5));
+      debugPrint(response.statusCode.toString());
       if (response.statusCode == 200) {
-        debugPrint(myEmail);
         var resp = jsonDecode(response.body);
         Navigator.of(context).pop();
         if (resp.isNotEmpty) {
@@ -502,10 +509,12 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         _showSnackBar(context, snackBarMessages.SERVERDOWN);
+        Navigator.of(context).pop();
         _isButtonPressed = false;
       }
     } on TimeoutException catch (_) {
       _showSnackBar(context, snackBarMessages.SERVERDOWN);
+      Navigator.of(context).pop();
       _isButtonPressed = false;
     }
   }
@@ -625,6 +634,19 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: Column(
         mainAxisAlignment: MainAxisAlignment.end,
         children: <Widget>[
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: FloatingActionButton(
+              heroTag: 'RedeemButton',
+              onPressed: () {
+                currentUser = _userBloc.userData;
+                Navigator.of(context)
+                    .pushNamed('/redeem', arguments: currentUser.email);
+              },
+              tooltip: 'Redeem',
+              child: Icon(Icons.redeem),
+            ),
+          ),
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: FloatingActionButton(

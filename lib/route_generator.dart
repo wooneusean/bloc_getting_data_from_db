@@ -15,10 +15,8 @@ enum snackBarMessages {
   SERVERDOWN,
   USERNOTVERIFIED,
   USEREXISTS,
-
   CODENOMOREUSES,
   CODEDOESNTEXIST,
-
   USERNOTEXISTS,
   MAILERDOWN,
   REGISTERSUCCESS,
@@ -193,10 +191,10 @@ class _RedeemPageState extends State<RedeemPage> {
 
   Future _sendRedeemRequest(
       String code, String myEmail, BuildContext context) async {
-    //final url = 'http://10.0.2.2/ctp1982019/redeem.php';
     final url = 'http://cef1582019.gearhostpreview.com/redeem.php';
     try {
       _isButtonPressed = true;
+      _showLoadingDialog(context);
       final response = await http.post(url, body: {
         'code': code,
         'myEmail': myEmail,
@@ -210,7 +208,7 @@ class _RedeemPageState extends State<RedeemPage> {
               context: context,
               builder: (BuildContext context) {
                 FlutterMoneyFormatter fmf = FlutterMoneyFormatter(
-                  amount: resp['codeValue'],
+                  amount: double.parse(resp['codeValue']),
                   settings: MoneyFormatterSettings(
                     symbol: 'USD',
                     thousandSeparator: ',',
@@ -240,18 +238,23 @@ class _RedeemPageState extends State<RedeemPage> {
               },
             );
           } else if (resp['res'] == '3') {
+            Navigator.of(context).pop();
             _showSnackBar(context, snackBarMessages.CODENOMOREUSES);
             _isButtonPressed = false;
           } else if (resp['res'] == '2') {
+            Navigator.of(context).pop();
             _showSnackBar(context, snackBarMessages.CODEDOESNTEXIST);
             _isButtonPressed = false;
           } else if (resp['res'] == '1') {
+            Navigator.of(context).pop();
             _showSnackBar(context, snackBarMessages.FAILURE);
             _isButtonPressed = false;
           } else if (resp['res'] == '0') {
+            Navigator.of(context).pop();
             _showSnackBar(context, snackBarMessages.EMPTYFIELDS);
             _isButtonPressed = false;
           } else {
+            Navigator.of(context).pop();
             _showSnackBar(context, snackBarMessages.FAILURE);
             _isButtonPressed = false;
           }
@@ -290,7 +293,6 @@ class _RedeemPageState extends State<RedeemPage> {
                   RaisedButton(
                     child: Text('Redeem'),
                     onPressed: () {
-                      _showLoadingDialog(context);
                       if (!_isButtonPressed) {
                         if (codeCtrl.text.isNotEmpty) {
                           _sendRedeemRequest(
@@ -337,7 +339,6 @@ class _TransferPageState extends State<TransferPage> {
         'recipientEmail': recipientEmail,
         'amount': amt.toString(),
       }).timeout(const Duration(seconds: 5));
-      debugPrint(response.statusCode.toString());
       if (response.statusCode == 200) {
         var resp = jsonDecode(response.body);
         Navigator.of(context).pop();
@@ -714,7 +715,6 @@ class _RegisterPageState extends State<RegisterPage> {
       if (response.statusCode == 200) {
         setState(() {
           res = jsonDecode(response.body);
-          debugPrint(response.body);
           if (res.isNotEmpty) {
             switch (res['res']) {
               case '0':

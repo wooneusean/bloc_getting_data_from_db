@@ -5,7 +5,7 @@ import 'user.dart';
 import 'package:http/http.dart' as http;
 
 class UserBloc {
-  User _userData = User('null', 'null');
+  User _userData = User('Loading...', 'Loading...');
   bool stopped = false;
   String _userToken;
 
@@ -32,8 +32,8 @@ class UserBloc {
       if (response.statusCode == 200) {
         var tempResp = jsonDecode(response.body);
         if (tempResp['email'] == null) {
-          _tempUser.setEmail = 'null';
-          _tempUser.setBalance = 'RM0';
+          _tempUser.setEmail = 'Loading...';
+          _tempUser.setBalance = 'Loading...';
         } else {
           _tempUser.setEmail = tempResp['email'];
           _tempUser.setBalance = tempResp['balance'];

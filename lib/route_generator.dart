@@ -157,9 +157,152 @@ class RouteGenerator {
             myEmail: args.toString(),
           ),
         );
+      case '/redeem':
+        return MaterialPageRoute(
+          builder: (_) => RedeemPage(
+            myEmail: args.toString(),
+          ),
+        );
       default:
         return MaterialPageRoute(builder: (_) => ErrorPage());
     }
+  }
+}
+
+class RedeemPage extends StatefulWidget {
+  RedeemPage({Key key, this.myEmail}) : super(key: key);
+
+  final String myEmail;
+
+  @override
+  _RedeemPageState createState() => _RedeemPageState();
+}
+
+class _RedeemPageState extends State<RedeemPage> {
+  // Fix up this
+  final codeCtrl = TextEditingController();
+  bool _isButtonPressed = false;
+
+  Future _sendRedeemRequest(
+      String code, String myEmail, BuildContext context) async {
+    final url = 'http://cef1582019.gearhostpreview.com/redeem.php';
+    try {
+      _isButtonPressed = true;
+      final response = await http.post(url, body: {
+        'code': code,
+        'myEmail': myEmail,
+      }).timeout(const Duration(seconds: 5));
+      if (response.statusCode == 200) {
+        debugPrint(myEmail);
+        var resp = jsonDecode(response.body);
+        Navigator.of(context).pop();
+        if (resp.isNotEmpty) {
+          if (resp['res'] == '4') {
+            await showDialog(
+              context: context,
+              builder: (BuildContext context) {
+                FlutterMoneyFormatter fmf = FlutterMoneyFormatter(
+                  amount: resp['codeValue'],
+                  settings: MoneyFormatterSettings(
+                    symbol: 'USD',
+                    thousandSeparator: ',',
+                    decimalSeparator: '.',
+                    symbolAndNumberSeparator: '',
+                    fractionDigits: 2,
+                  ),
+                );
+                String newAmt = fmf.output.symbolOnLeft;
+                // return object of type Dialog
+                return AlertDialog(
+                  title: new Text('Success!'),
+                  content: new Text(
+                      'Redeem Success! $newAmt has been added to your account!'),
+                  actions: <Widget>[
+                    // usually buttons at the bottom of the dialog
+                    new FlatButton(
+                      child: new Text("Close"),
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        Navigator.of(context).pop();
+                        _isButtonPressed = false;
+                      },
+                    ),
+                  ],
+                );
+              },
+            );
+          } else if (resp['res'] == '3') {
+            _showSnackBar(context, snackBarMessages.USERNOTEXISTS);
+            _isButtonPressed = false;
+          } else if (resp['res'] == '2') {
+            _showSnackBar(context, snackBarMessages.INSUFFICIENTFUNDS);
+            _isButtonPressed = false;
+          } else if (resp['res'] == '1') {
+            _showSnackBar(context, snackBarMessages.FAILURE);
+            _isButtonPressed = false;
+          } else if (resp['res'] == '0') {
+            _showSnackBar(context, snackBarMessages.EMPTYFIELDS);
+            _isButtonPressed = false;
+          } else {
+            _showSnackBar(context, snackBarMessages.FAILURE);
+            _isButtonPressed = false;
+          }
+        }
+      } else {
+        Navigator.of(context).pop();
+        _showSnackBar(context, snackBarMessages.SERVERDOWN);
+        _isButtonPressed = false;
+      }
+    } on TimeoutException catch (_) {
+      Navigator.of(context).pop();
+      _showSnackBar(context, snackBarMessages.SERVERDOWN);
+      _isButtonPressed = false;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Transfer'),
+      ),
+      body: Builder(
+        builder: (context) => SafeArea(
+          child: ListView(
+            padding: EdgeInsets.symmetric(horizontal: 24.0),
+            children: <Widget>[
+              SizedBox(height: 120.0),
+              TextField(
+                controller: codeCtrl,
+                decoration:
+                    InputDecoration(labelText: 'Code', filled: true),
+              ),
+              SizedBox(height: 12.0),
+              ButtonBar(
+                children: <Widget>[
+                  RaisedButton(
+                    child: Text('Redeem'),
+                    onPressed: () {
+                      _showLoadingDialog(context);
+                      if (!_isButtonPressed) {
+                        if (codeCtrl.text.isNotEmpty) {
+                          _sendRedeemRequest(
+                              codeCtrl.text, widget.myEmail, context);
+                        } else {
+                          _showSnackBar(context, snackBarMessages.EMPTYFIELDS);
+                        }
+                      } else {
+                        return null;
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 }
 
@@ -173,7 +316,6 @@ class TransferPage extends StatefulWidget {
 }
 
 class _TransferPageState extends State<TransferPage> {
-
   final amtCtrl = TextEditingController();
   final rcptCtrl = TextEditingController();
   bool _isButtonPressed = false;
@@ -197,12 +339,13 @@ class _TransferPageState extends State<TransferPage> {
             await showDialog(
               context: context,
               builder: (BuildContext context) {
-                FlutterMoneyFormatter fmf = FlutterMoneyFormatter(amount: amt,
+                FlutterMoneyFormatter fmf = FlutterMoneyFormatter(
+                  amount: amt,
                   settings: MoneyFormatterSettings(
-                    symbol: 'RM',
+                    symbol: 'USD',
                     thousandSeparator: ',',
                     decimalSeparator: '.',
-                    symbolAndNumberSeparator: ' ',
+                    symbolAndNumberSeparator: '',
                     fractionDigits: 2,
                   ),
                 );
@@ -243,8 +386,13 @@ class _TransferPageState extends State<TransferPage> {
             _isButtonPressed = false;
           }
         }
+      } else {
+        Navigator.of(context).pop();
+        _showSnackBar(context, snackBarMessages.SERVERDOWN);
+        _isButtonPressed = false;
       }
     } on TimeoutException catch (_) {
+      Navigator.of(context).pop();
       _showSnackBar(context, snackBarMessages.SERVERDOWN);
       _isButtonPressed = false;
     }
@@ -333,23 +481,28 @@ class _LoginPageState extends State<LoginPage> {
         'password': password
       }).timeout(const Duration(seconds: 5));
       if (response.statusCode == 200) {
-        setState(() {
-          // debugPrint(response.body);
-          token = jsonDecode(response.body);
-          Navigator.of(context).pop();
-          if (token.isNotEmpty) {
-            if (token['res'] == '0') {
-              _showSnackBar(context, snackBarMessages.EMAILPASSMISMATCH);
-              _isButtonPressed = false;
-            } else if (token['res'] == '1') {
-              _showSnackBar(context, snackBarMessages.USERNOTVERIFIED);
-              _isButtonPressed = false;
-            } else {
-              Navigator.of(context)
-                  .pushReplacementNamed('/home', arguments: token['res']);
+        setState(
+          () {
+            // debugPrint(response.body);
+            token = jsonDecode(response.body);
+            Navigator.of(context).pop();
+            if (token.isNotEmpty) {
+              if (token['res'] == '0') {
+                _showSnackBar(context, snackBarMessages.EMAILPASSMISMATCH);
+                _isButtonPressed = false;
+              } else if (token['res'] == '1') {
+                _showSnackBar(context, snackBarMessages.USERNOTVERIFIED);
+                _isButtonPressed = false;
+              } else {
+                Navigator.of(context)
+                    .pushReplacementNamed('/home', arguments: token['res']);
+              }
             }
-          }
-        });
+          },
+        );
+      } else {
+        _showSnackBar(context, snackBarMessages.SERVERDOWN);
+        _isButtonPressed = false;
       }
     } on TimeoutException catch (_) {
       _showSnackBar(context, snackBarMessages.SERVERDOWN);
@@ -543,18 +696,22 @@ class _RegisterPageState extends State<RegisterPage> {
           if (res.isNotEmpty) {
             switch (res['res']) {
               case '0':
+                Navigator.of(context).pop();
                 _showSnackBar(context, snackBarMessages.EMPTYFIELDS);
                 _isButtonPressed = false;
                 break;
               case '1':
+                Navigator.of(context).pop();
                 _showSnackBar(context, snackBarMessages.PASSREPASSMISMATCH);
                 _isButtonPressed = false;
                 break;
               case '2':
+                Navigator.of(context).pop();
                 _showSnackBar(context, snackBarMessages.USEREXISTS);
                 _isButtonPressed = false;
                 break;
               case '3':
+                Navigator.of(context).pop();
                 _showSnackBar(context, snackBarMessages.MAILERDOWN);
                 _isButtonPressed = false;
                 break;
@@ -589,6 +746,9 @@ class _RegisterPageState extends State<RegisterPage> {
             }
           }
         });
+      } else {
+        _showSnackBar(context, snackBarMessages.SERVERDOWN);
+        _isButtonPressed = false;
       }
     } on TimeoutException catch (_) {
       _showSnackBar(context, snackBarMessages.SERVERDOWN);
